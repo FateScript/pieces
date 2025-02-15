@@ -1,0 +1,557 @@
+\documentclass{beamer}
+\usepackage{ctex}  % comment this line to use pure English
+\usepackage{minted}
+% \usepackage{listings}
+\usepackage[utf8]{inputenc}
+
+% \setminted{xleftmargin=1cm}  % for code line number 
+
+% \useoutertheme{split}
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+
+\makeatother
+\setbeamertemplate{footline}
+{
+  \leavevmode%
+  \hbox{%
+  \begin{beamercolorbox}[wd=.4\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+    \usebeamerfont{author in head/foot}\insertshortauthor
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=.6\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+    \usebeamerfont{title in head/foot}\insertshorttitle\hspace*{3em}
+    \insertframenumber{} / \inserttotalframenumber\hspace*{1ex}
+  \end{beamercolorbox}}%
+  \vskip0pt%
+}
+\makeatletter
+\setbeamertemplate{navigation symbols}{}
+
+
+%------------------------------------------------------------
+%This block of code defines the information to appear in the
+%Title page
+\title[Intro to jax] %optional
+{A simple introduction to JAX}
+
+\subtitle{A quick view}
+
+\author[Feng Wang] % (optional)
+{Feng Wang\inst{1}}
+
+\institute[megvii] % (optional)
+{
+  \inst{1}%
+  Megvii\\
+  wangfeng02@megvii.com
+}
+
+\date[megvii 2022] % (optional)
+{Megvii, December 2022}
+
+% \logo{\includegraphics[height=1cm]{overleaf-logo}}
+
+%End of title page configuration block
+%------------------------------------------------------------
+
+
+
+%------------------------------------------------------------
+%The next block of commands puts the table of contents at the 
+%beginning of each section and highlights the current section:
+
+\AtBeginSection[]
+{
+  \begin{frame}
+    \frametitle{Table of Contents}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+%------------------------------------------------------------
+
+
+\begin{document}
+
+%The next statement creates the title page.
+\frame{\titlepage}
+
+
+%---------------------------------------------------------
+%This block of code is for the table of contents after
+%the title page
+\begin{frame}
+\frametitle{Table of Contents}
+\tableofcontents
+\end{frame}
+%---------------------------------------------------------
+
+
+\section{Jax quick start}
+
+%---------------------------------------------------------
+\begin{frame}[fragile]
+\frametitle{Jax quick start}
+Jax 的核心理念是函数式编程，更关心数据是如何映射的，而命令式编程关心解决问题的步骤。\newline
+
+举个例子，考虑反转二叉树的面试题目，常规python代码是（命令式编程）：
+
+\begin{minted}{python}
+def invertTree(root):
+    if root is None:
+        return None
+
+    root.left, root.right = invertTree(root.right), \
+        invertTree(root.left)
+    return root
+
+\end{minted}
+
+含义很简单：首先判断节点是否为空，然后翻转左树和右树，最后左右互换。
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Jax quick start}
+
+函数式编程则是另一个视角：所谓“翻转二叉树”，可以看做是要得到一颗和原来二叉树对称的新二叉树。
+这颗新二叉树的特点是每一个节点都递归地和原树相反。\newline
+
+函数编程则可能这样写：\newline
+
+\begin{minted}{python}
+def invert(node):
+    if node is None:
+        return None
+    else
+        return Tree(node.value, \
+            invert(node.right), invert(node.left))
+
+\end{minted}
+
+这段代码体现的思维，就是旧树到新树的映射——对一颗二叉树而言，它的镜像树就是左右节点递归镜像的树。
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Jax quick start}
+
+函数式编程思想在Jax中的一些体现：
+
+\begin{itemize}
+    \item<1-> inplace概念\newline
+    jax中没有inplace操作，所有的操作都是通过map逻辑映射出来，也就是：
+    \begin{minted}{python}
+    x = jnp.sigmoid(jnp.reshape(x, (1, -1)))
+    \end{minted}
+    \item<2-> model状态\newline
+    model也是没有状态的，也没有所谓的初始化，输入决定了模型的参数形状。参数决定了模型forward结果。
+    \begin{minted}{python}
+    param = model.init(rng, model_input)
+    output = model.apply(param, inputs, training=True)
+    \end{minted}
+    \item<3-> grad和vmap\newline
+    梯度就是针对function的一个操作，向量化就是单个输入的映射concat出来的。
+    \begin{minted}{python}
+    grad_fn = jax.grad(model_fn)
+    batch_fn = jax.vmap(model_fn)
+    \end{minted}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Jax quick start}
+
+使用Jax很简单：想象你有一个Jax Array，使用numpy中的API来操作这个Array。\newline
+Jax没有device这样的认知负担，当你安装了GPU version的Jaxlib，默认就是GPU，在没有检测到GPU的时候，就是CPU。
+
+\begin{minted}{python}
+import jax.numpy as jnp
+from jax import random
+
+key = random.PRNGKey(0)
+size = 3000
+x = random.normal(key, (size, size), dtype=jnp.float32)
+%timeit jnp.dot(x, x.T).block_until_ready()  # GPU
+\end{minted}
+
+\begin{block}{NOTE}
+这里 block\_until\_ready方法是必要的，\textbf{在测速的时候一定要加上}。
+\end{block}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Jax quick start}
+
+Jax的核心加速方法就是jit。相比原始的python code，jit可以获得十倍之上的加速。\newline
+\begin{minted}[linenos]{python}
+def selu(x, alpha=1.67, lmbda=1.05):
+  return lmbda * jnp.where(x > 0, x, alpha * jnp.exp(x) - alpha)
+
+x = random.normal(key, (1000000,))
+%timeit selu(x).block_until_ready()
+
+selu_jit = jit(selu)
+%timeit selu_jit(x).block_until_ready()
+\end{minted}
+
+\begin{minted}{shell-session}
+1.07 ms ± 261 µs per loop (mean ± std. dev. of 7 runs)
+127 µs ± 1.43 µs per loop (mean ± std. dev. of 7 runs)
+\end{minted}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Jax quick start}
+
+习惯了写torch，刚开始写Jax可能不舒服的地方：\newline
+
+\begin{itemize}
+    \item<1-> 不能inplace update\newline
+    前面说过，jax中没有inplace操作，所以涉及到array的更新也不能直接在array上进行操作：
+    \begin{minted}{python}
+    # Numpy
+    np_array = np.zeros((3,3), dtype=np.float32)
+    np_array[1, :] = 1.0 # In place, mutating update
+    # Jax
+    jax_array = jnp.zeros((3,3), dtype=jnp.float32)
+    updated_array = jax_array.at[1, :].set(1.0)
+    new_jax_array = jax_array.at[::2, 3:].add(7.)
+    \end{minted}
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Jax quick start}
+
+习惯了写torch，刚开始写Jax可能不舒服的地方：\newline
+
+\begin{itemize}
+    \item<1-> 随机数需要自己造\newline
+    jax里面所有生成随机数的方法都需要一个显示传入的key
+    \begin{minted}{python}
+    from jax import random
+    key = random.PRNGKey(0)
+    print(random.normal(key, shape=(1,)))
+    key, subkey = random.split(key)
+    key, *subkeys = random.split(key, 4)  # multi subkey
+    for subkey in subkeys:
+        print(random.normal(subkey, shape=(1,)))
+    \end{minted}
+\end{itemize}
+
+\end{frame}
+%---------------------------------------------------------
+
+%---------------------- To JIT or not to JIT ----------------
+
+\section{To JIT or not to JIT}
+
+\begin{frame}[fragile]
+\frametitle{To JIT or not to JIT}
+
+虽然Jax的jit真的很香，但是jit也是需要在限制下才能满足的，一些操作并不能和jit一起使用。\newline
+为了方便查看jit之后的函数形式，jax提供了make\_jaxpr来查看jit之后的函数形式。
+\begin{minted}{python}
+from jax import random, make_jaxpr
+
+def f(x, y):
+  return jnp.dot(x + 1, y + 1)
+
+x = np.random.randn(3, 4)
+y = np.random.randn(4)
+make_jaxpr(f)(x, y)
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{To JIT or not to JIT}
+
+jaxpr(Jax print)输出的jit之后的函数形式：
+\begin{minted}{python}
+>>> make_jaxpr(f)(x, y)
+{ lambda  ; a b.
+  let c = add a 1.0
+      d = add b 1.0
+      e = dot_general[
+        dimension_numbers=(((1,), (0,)), ((), ()))
+        precision=None ] c d
+  in (e,) }
+\end{minted}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{To JIT or not to JIT}
+
+因为jit是在没有数组内容信息的情况下完成的，所以函数中的控制流语句不能依赖于traced value。\newline
+\begin{minted}{python}
+@jit
+def f(x, neg):
+  return -x if neg else x
+
+f(1, True)  # crash here
+\end{minted}
+
+\begin{block}{NOTE}
+想要正常trace，需要声明neg为非trace结果（static参数）。
+此时，当neg发生变化的时候，jit会重新编译函数f。
+\end{block}
+
+\begin{minted}{python}
+@functools.partial(jit, static_argnums=(1,))
+def f(x, neg):
+  return -x if neg else x
+\end{minted}
+
+\end{frame}
+
+% ---------------------- page ----------------------
+\begin{frame}[fragile]
+\frametitle{To JIT or not to JIT}
+
+JIT会在第一次运行的时刻编译函数，并且将编译好的函数做cache，所以如果使用了一些全局变量，
+会有一些side-effect。\newline
+
+\begin{block}{NOTE}
+被jit装饰的函数会在第一次运行的时候进行编译缓存，所以jit函数的第一次运行会比较耗时。
+\end{block}
+
+\begin{minted}{python}
+y = 0
+
+# @jit   # Different behavior with jit
+def impure_func(x):
+  print("Inside:", y)
+  return x + y
+
+for y in range(3):
+  print("Result:", impure_func(y))
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{To JIT or not to JIT}
+
+运行结果（纯函数版本和jit版本）：
+
+\begin{columns}
+\column{0.5\textwidth}
+\begin{minted}{python}
+    # pure func
+    Inside: 0
+    Result: 0
+    Inside: 1
+    Result: 2
+    Inside: 2
+    Result: 4
+\end{minted}
+
+\column{0.5\textwidth}
+\begin{minted}{python}
+# jit func
+Inside: 0
+Result: 0
+Result: 1
+Result: 2
+\end{minted}
+
+\end{columns}
+
+\end{frame}
+
+% ---------------------- page ----------------------
+\begin{frame}[fragile]
+jit对函数进行编译的时候会做function的fuse，一些不必要的操作也会做去除，所以执行结果不同也是有可能的。
+\begin{minted}{python}
+def f(x):
+    return jnp.log(jnp.exp(x))
+x = 100.0
+>>> print(f(x))
+inf
+>>> print(jit(f)(x))
+100.0
+\end{minted}
+可以看出在上边的例子中log和exp在fuse之后就互相抵消掉了，函数返回的原始结果也不同了。\newline
+关于fuse的规则jax官方文档中也没有详细阐述，所以关于这部分的细节只能看code。
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{To JIT or not to JIT}
+
+来看下面一个简单的class，想想调用是否会导致crash，如何fix?
+\begin{examples}[bug fix]
+\begin{minted}{python}
+class CustomClass:
+  def __init__(self, x: jnp.ndarray, mul: bool):
+    self.x = x
+    self.mul = mul
+
+  @jit  # <---- How to do this correctly?
+  def calc(self, y):
+    if self.mul:
+      return self.x * y
+    return y
+
+c = CustomClass(2, True)
+c.calc(3) 
+\end{minted}
+\end{examples}
+
+\end{frame}
+%---------------------------------------------------------
+
+
+%---------------------- Flax ----------------
+
+\section{Flax \& Optax: neural network library}
+
+\begin{frame}[fragile]
+\frametitle{Flax \& Optax: neural network library}
+用flax写成的一个简单例子：
+\begin{minted}{python}
+from flax import linen as nn 
+
+class CNN(nn.Module):
+  @nn.compact
+  def __call__(self, x):
+    x = nn.Conv(features=32, kernel_size=(3, 3))(x)
+    x = nn.relu(x)
+    x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+    x = x.reshape((x.shape[0], -1))  # flatten
+    x = nn.Dense(features=10)(x)
+    return x
+
+model = CNN()
+x = jnp.empty((4, 28, 28, 1))
+params = model.init(PRNGKey(42), x)
+y = model.apply(params, x)
+
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Flax \& Optax: neural network library}
+模型训练参数的创建：
+\begin{minted}{python}
+from flax.training import train_state
+import optax
+
+def create_train_state(rng, learning_rate, momentum):
+  cnn = CNN()
+  params = cnn.init(rng, jnp.ones([1, 28, 28, 1]))['params']
+  return train_state.TrainState.create(
+      apply_fn=cnn.apply,
+      params=params,
+      tx=optax.sgd(learning_rate, momentum)
+  )
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Flax \& Optax: neural network library}
+模型的单步训练：
+\begin{minted}{python}
+@jax.jit
+def train_step(state, batch):
+  image, label = batch['image'], batch['label']
+
+  def loss_fn(params):
+    logits = CNN().apply({'params': params}, image)
+    loss = cross_entropy_loss(logits=logits, labels=label)
+    return loss, logits
+
+  grad_fn = jax.grad(loss_fn, has_aux=True)
+  grads, logits = grad_fn(state.params)
+  state = state.apply_gradients(grads=grads)
+  metrics = compute_metrics(logits=logits, labels=label)
+  return state, metrics
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Flax \& Optax: neural network library}
+框架下的训练逻辑：
+\begin{minted}{python}
+for data in dataloader:
+    state, metrics = train_step(state, data)
+print(metrics)
+\end{minted}
+最后模型返回的state.params就是训练好的模型参数，保存即可。
+\begin{minted}{python}
+from flax.serialization import msgpack_serialize
+
+def save_params(params, file):
+    with open(file, "wb+") as f:
+        serialized = msgpack_serialize(params.unfreeze())
+        f.write(serialized)
+    print(f"Saved successfully to {file}")
+
+save_params(state.params, "params.npy")
+\end{minted}
+\end{frame}
+
+\begin{frame}{}
+  \centering \Large
+  \emph{Thank you!}
+  \emph{Any questions or comments are welcomed!}
+\end{frame}
+%---------------------------------------------------------
+%Highlighting text
+% \begin{frame}
+% \frametitle{Sample frame title}
+
+% In this slide, some important text will be
+% \alert{highlighted} because it's important.
+% Please, don't abuse it.
+
+% \begin{block}{Remark}
+% Sample text
+% \end{block}
+
+% \begin{alertblock}{Important theorem}
+% Sample text in red box
+% \end{alertblock}
+
+% \begin{examples}
+% Sample text in green box. The title of the block is ``Examples".
+% \end{examples}
+% \end{frame}
+%---------------------------------------------------------
+
+%Example of the \pause command
+% \begin{frame}
+% In this slide \pause
+% the text will be partially visible \pause
+% And finally everything will be there
+% \end{frame}
+
+%---------------------------------------------------------
+%Two columns
+% \begin{frame}
+% \frametitle{Two-column slide}
+
+% \begin{columns}
+
+% \column{0.5\textwidth}
+% This is a text in first column.
+% $$E=mc^2$$
+% \begin{itemize}
+% \item First item
+% \item Second item
+% \end{itemize}
+
+% \column{0.5\textwidth}
+% This text will be in the second column
+% and on a second tought this is a nice looking
+% layout in some cases.
+% \end{columns}
+% \end{frame}
+%---------------------------------------------------------
+
+\end{document}
